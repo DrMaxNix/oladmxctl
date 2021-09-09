@@ -247,7 +247,7 @@ Examples:
 		}
 		
 	} else {
-		if(!$__silent){
+		if(sizeof($__write) > 0 and !$__silent){
 			echo("INFO: Didn't send write command because nothing changed" . "\n");
 		}
 	}
