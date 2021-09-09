@@ -18,7 +18,7 @@ sudo apt install php curl
 ### download
 Download the script from github
 ```bash
-wget https://github.com/DrMaxNix/oladmxctl/releases/download/1.0.1/oladmxctl
+wget https://github.com/DrMaxNix/oladmxctl/releases/download/v1.0.1/oladmxctl
 ```
 
 Make it executable
