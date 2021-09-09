@@ -1,0 +1,253 @@
+#!/usr/bin/php
+<?php
+	/*
+		MIT License
+		
+		Copyright (c) 2021 DrMaxNix
+		
+		Permission is hereby granted, free of charge, to any person obtaining a copy
+		of this software and associated documentation files (the "Software"), to deal
+		in the Software without restriction, including without limitation the rights
+		to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+		copies of the Software, and to permit persons to whom the Software is
+		furnished to do so, subject to the following conditions:
+		
+		The above copyright notice and this permission notice shall be included in all
+		copies or substantial portions of the Software.
+		
+		THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+		IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+		FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+		AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+		LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+		OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+		SOFTWARE.
+	*/
+	
+	// CONFIG //
+	$conf["usage_msg"] = "Usage:
+  oladmxctl --universe <universe> [--write <json>] [--read <json>]
+  
+  -s --silent           No error/warning/info output
+  
+  -u --universe         Universe number to control
+  -w --write            JSON-encoded string with channel-value pairs to write
+  -r --read             JSON-encoded string with channels to read from and output
+                        to stdout as JSON-encoded string with channel-value pairs
+  -f --force-rewrite    Force write request to olad even if no data has changed
+  
+  -1 --ch-offset        First channel has number 1
+  
+  -a --address          Address of the olad instance (default 127.0.01)
+  -p --port             Port of the olad instance (default 9090)
+  -3 --ssl              Use https instead of http
+  
+  -h --help             Show this help and exit
+  -v --version          Print version and exit
+  
+Examples:
+  Set channel 13 and 14 to 255 in universe 1
+  $ oladmxctl --universe 1 --write '{\"13\":255, \"14\":255}'
+  
+  Read channels 13 and 14 in universe 1
+  $ oladmxctl --universe 1 --read '[13, 14]'
+  Returns {\"13\":255, \"14\":255}";
+  
+	$conf["version_msg"] = "oladmxctl v1.0.0 | (c) DrMaxNix 2021 | www.drmaxnix.de/oladmxctl";
+	
+	
+	// COLLECT ARGS //
+	//get from php
+	$__arg = getopt("su:w:r:f1a:p:3hv", ["silent", "universe:", "write:", "read:", "force-rewrite", "ch-offset", "address:", "port:", "ssl", "help", "version"]);
+	
+	//silent execution?
+	$__silent = (isset($__arg["s"]) or isset($__arg["silent"]));
+	
+	//maybe print version and exit
+	if(isset($__arg["v"]) or isset($__arg["version"])){
+		echo($conf["version_msg"] . "\n");
+		exit(0);
+	}
+	
+	//maybe print help and exit
+	if(isset($__arg["h"]) or isset($__arg["help"])){
+		echo($conf["usage_msg"] . "\n");
+		exit(0);
+	}
+	
+	//universe
+	if(isset($__arg["u"]) or isset($__arg["universe"])){
+		$__universe = (int)(isset($__arg["u"]) ? $__arg["u"] : $__arg["universe"]);
+		
+	} else {
+		if(!$__silent){
+			echo("ERROR: Missing universe" . "\n\n");
+			echo($conf["usage_msg"] . "\n");
+		}
+		exit(1);
+	}
+	
+	//write
+	$__write = [];
+	if(isset($__arg["w"]) or isset($__arg["write"])){
+		$__write = (isset($__arg["w"]) ? $__arg["w"] : $__arg["write"]);
+		$__write = json_decode($__write, true);
+	}
+	
+	//read
+	$__read = [];
+	if(isset($__arg["r"]) or isset($__arg["read"])){
+		$__read = (isset($__arg["r"]) ? $__arg["r"] : $__arg["read"]);
+		$__read = json_decode($__read, true);
+	}
+	
+	//offset channel ids by 1?
+	$__channel_offset = (int)(isset($__arg["1"]) or isset($__arg["ch-offset"]));
+	
+	//force rewrite?
+	$__force_rewrite = (isset($__arg["f"]) or isset($__arg["force-rewrite"]));
+	
+	//olad address
+	$__address = "127.0.0.1";
+	if(isset($__arg["a"]) or isset($__arg["address"])){
+		$__address = (isset($__arg["a"]) ? $__arg["a"] : $__arg["address"]);
+	}
+	
+	//olad port
+	$__port = 9090;
+	if(isset($__arg["p"]) or isset($__arg["port"])){
+		$__port = (int)(isset($__arg["p"]) ? $__arg["p"] : $__arg["port"]);
+	}
+	
+	//use ssl?
+	$__ssl = (isset($__arg["3"]) or isset($__arg["ssl"]));
+	
+	
+	// CHECK IF NO ACTIONS ARE REQUESTED //
+	if(sizeof($__write) <= 0 and sizeof($__read) <= 0){
+		if(!$__silent){
+			echo("INFO: no actions requested" . "\n");
+		}
+		exit(0);
+	}
+	
+	
+	// READ ALL CHANNELS IN UNIVERSE FROM OLAD //
+	//http request
+	$response_string = shell_exec("curl -s 'http" . ($__ssl ? "s" : "") . "://" . $__address . ":" . $__port . "/get_dmx?u=" . $__universe . "'");
+	
+	//check if valid
+	if(substr($response_string, 0, 1) !== "{"){
+		if(!$__silent){
+			echo("ERROR: Error reading channels from olad" . "\n");
+		}
+		exit(1);
+	}
+	
+	//decode
+	$response = json_decode($response_string, true);
+	
+	//check for errors
+	if(strlen($response["error"]) > 0){
+		if(!$__silent){
+			echo("ERROR: Error reading channels from olad" . "\n");
+		}
+		exit(1);
+	}
+	
+	//get dmx channels
+	$__channel = [];
+	for($q = 0; $q <= 511; $q++){
+		//check if channel value is known
+		if(isset($response["dmx"][$q])){
+			//use value from response
+			$__channel[] = $response["dmx"][$q];
+			
+		} else {
+			//set to '0'
+			$__channel[] = 0;
+		}
+	}
+	
+	//remember old state
+	$__channel_old = $__channel;
+	
+	
+	// MODIFY CHANNELS REQUESTED TO WRITE //
+	for($q = 0; $q < sizeof($__write); $q++){
+		$channel = ((int)array_keys($__write)[$q] - $__channel_offset);
+		$value = (int)$__write[array_keys($__write)[$q]];
+		
+		//check if channel is in valid range of 0-512
+		if($channel >= 0 and $channel <= 511){
+			//min and max the value to 0-255
+			$value = max(0, min($value, 255));
+			
+			if($value !== (int)$__write[array_keys($__write)[$q]] and !$__silent){
+				echo("INFO: value '" . (int)$__write[array_keys($__write)[$q]] . "' was corrected to min/max of '" . $value . "'" . "\n");
+			}
+			
+			//set value
+			$__channel[$channel] = $value;
+			
+		} else {
+			if(!$__silent){
+				echo("WARNING: invalid channel '" . (int)array_keys($__write)[$q] . "'" . "\n");
+			}
+		}
+	}
+	
+	
+	// OUTPUT REQUESTED CHANNELS //
+	//only if requested
+	if(sizeof($__read) > 0){
+		//collect data
+		$__read_output = [];
+		for($q = 0; $q < sizeof($__read); $q++){
+			$channel = ((int)$__read[$q] - $__channel_offset);
+			
+			//check if channel is in valid range of 0-512
+			if($channel >= 0 and $channel <= 511){
+				//add to output buffer
+				$__read_output[(int)$__read[$q]] = $__channel[$channel];
+				
+			} else {
+				if(!$__silent){
+					echo("WARNING: invalid channel '" . (int)$__read[$q] . "'" . "\n");
+				}
+			}
+		}
+		
+		//output
+		echo(json_encode($__read_output));
+	}
+	
+	
+	// SEND ALL CHANNELS IN UNIVERSE TO OLAD //
+	//only if something changed
+	if($__channel !== $__channel_old or $__force_rewrite){
+		if($__channel === $__channel_old){
+			if(!$__silent){
+				echo("INFO: Write command was sent even tho nothing changed because 'force-rewrite' is enabled" . "\n");
+			}
+		}
+		
+		//encode channel-data
+		$channel_encoded = implode(",", $__channel);
+		
+		//http request
+		$response_string = shell_exec("curl -s -X POST -d 'u=" . $__universe . "&d=" . $channel_encoded . "' 'http" . ($__ssl ? "s" : "") . "://" . $__address . ":" . $__port . "/set_dmx'");
+		
+		//check for errors
+		if($response_string !== "ok"){
+			if(!$__silent){
+				echo("ERROR: Error writing channels to olad" . "\n");
+			}
+			exit(1);
+		}
+	} else {
+		if(!$__silent){
+			echo("INFO: Didn't send write command because nothing changed" . "\n");
+		}
+	}
+?>
