@@ -245,6 +245,7 @@ Examples:
 			}
 			exit(1);
 		}
+		
 	} else {
 		if(!$__silent){
 			echo("INFO: Didn't send write command because nothing changed" . "\n");
