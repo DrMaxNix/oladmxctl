@@ -52,7 +52,7 @@ oladmxctl --universe <universe> [--write <json>] [--read <json>]
 
 -1 --ch-offset        First channel has number 1
 
--a --address          Address of the olad instance (default 127.0.01)
+-a --address          Address of the olad instance (default 127.0.0.1)
 -p --port             Port of the olad instance (default 9090)
 -3 --ssl              Use https instead of http
 
