@@ -1,5 +1,5 @@
 # olaDMXctl
-[![GitHub release](https://img.shields.io/badge/release-v1.0.2)](https://github.com/DrMaxNix/oladmxctl/releases/tag/v1.0.2)
+[![GitHub release](https://img.shields.io/badge/release-v1.0.2-orange)](https://github.com/DrMaxNix/oladmxctl/releases/tag/v1.0.2)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/DrMaxNix/oladmxctl/blob/main/LICENSE)
 [![Maintaner](https://img.shields.io/badge/maintainer-DrMaxNix-blue)](https://www.drmaxnix.de)
 
